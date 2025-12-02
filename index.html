@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ferrari 3D Showroom</title>
+<title>Lambo 4D Background</title>
 <style>
 html, body {
     margin: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: #191919;
+    background: #000;
 }
 #container3D { width: 100%; height: 100%; }
 </style>
@@ -23,181 +23,107 @@ import * as THREE from "https://cdn.skypack.dev/three@0.129.0/build/three.module
 import { GLTFLoader } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/controls/OrbitControls.js";
 import { RGBELoader } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/RGBELoader.js";
+import { PMREMGenerator } from "https://cdn.skypack.dev/three@0.129.0/build/three.module.js";
 import { EffectComposer } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { SMAAPass } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/postprocessing/SMAAPass.js";
 
 // Scene & Camera
 const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(25, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(4, 2, 5);
 
-// PerspectiveCamera(fov, aspect, near, far)
-const camera = new THREE.PerspectiveCamera(
-    20, // narrower FOV for a cinematic look
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000 // far enough for city or showroom
-);
-
-// Position the camera slightly above and to the side of the car
-camera.position.set(4, 2, 5); 
-
-// Optional: make the camera look slightly down at the car
-camera.lookAt(0, 0.5, 0); // assuming car is centered at origin
-
-
-/// Renderer (high quality)
-const renderer = new THREE.WebGLRenderer({ 
-    antialias: true, 
-    alpha: true, 
-    powerPreference: "high-performance" 
-});
+// Renderer
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, powerPreference:"high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.physicallyCorrectLights = true; 
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.physicallyCorrectLights = true;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 2;
+renderer.toneMappingExposure = 5;
 document.getElementById("container3D").appendChild(renderer.domElement);
+
 // Controls
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
-controls.maxPolarAngle = Math.PI / 2.2;
+controls.maxPolarAngle = Math.PI/2.2;
 controls.minDistance = 2;
 controls.maxDistance = 15;
-controls.autoRotate = true;        // Turn on auto-rotation
-controls.autoRotateSpeed = 1.0;    // Adjust rotation speed (1 = default)
-
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.8;
 
 // Lights
-const ambient = new THREE.AmbientLight(0xedcd8f, 0.8); 
-scene.add(ambient);
-
-const sun = new THREE.DirectionalLight(0xfff0b1, 1);
-sun.shadow.camera.near = 0.1;
-sun.shadow.camera.left = -5;
-sun.shadow.camera.right = 5;
-sun.shadow.camera.top = 5;
-sun.shadow.camera.bottom = -5;
-sun.shadow.bias = -0.0001;
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
+const sun = new THREE.DirectionalLight(0xffffff,1);
+sun.position.set(5,10,5);
+sun.castShadow = true;
 scene.add(sun);
 
-
-// Rim lights
-const rimLeft = new THREE.PointLight(0xffeedd, 0.1, 10);
-rimLeft.position.set(3, 2, -2);
-scene.add(rimLeft);
-
-const rimRight = new THREE.PointLight(0xffeedd, 0.1, 10);
-rimRight.position.set(-3, 2, -2);
-scene.add(rimRight);
-
-// Fill light
-const fill = new THREE.PointLight(0xfff0b1, 0.05, 10);
-fill.position.set(0, 3, 3);
-scene.add(fill);
-
-
-// Headlights subtle
-const headLeft = new THREE.SpotLight(0xfff0b1, 0.00001, 20, Math.PI/8, 0.2, -1);
-const headRight = headLeft.clone();
-headLeft.position.set(0.9, 0.35, -2.5);
-headRight.position.set(-0.9, 0.35, -2.5);
-headLeft.target.position.set(0.9, 0.2, -4);
-headRight.target.position.set(-0.9, 0.2, -4);
-
-scene.add(headLeft, headRight, headLeft.target, headRight.target);
+// Floor
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(20,20),
+    new THREE.MeshStandardMaterial({color:0x333333, metalness:0.1, roughness:0.8})
+);
+floor.rotation.x = -Math.PI/2;
+floor.position.y = 0;
+floor.receiveShadow = true;
+scene.add(floor);
 
 // Postprocessing
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.15, 0.3, 0.7);
-composer.addPass(bloom);
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight),0.15,0.3,0.7));
+composer.addPass(new SMAAPass(window.innerWidth, window.innerHeight));
 
-// Background
-scene.background = new THREE.Color(0x000000); // light gray background
-
-// Ground (floor)
-const streetGeo = new THREE.PlaneGeometry(10, 6);
-const streetMat = new THREE.MeshStandardMaterial({
-    color: 0x888888,   // same gray as background for seamless look
-    metalness: 0.3,
-    roughness: 0.5
-});
-const street = new THREE.Mesh(streetGeo, streetMat);
-street.rotation.x = -Math.PI / 2;
-street.position.y = 0;
-street.receiveShadow = true;
-scene.add(street);
-
-// Load Car Model
-let car;
 const loader = new GLTFLoader();
-loader.load(
-    "lambo/scene.gltf",
-    (gltf) => {
-        car = gltf.scene;
-
-        // Center & scale
+loader.load("lambo/scene.gltf",
+    (gltf)=>{
+        const car = gltf.scene;
         const box = new THREE.Box3().setFromObject(car);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
-        const scale = 2.5 / Math.max(size.x, size.y, size.z);
+        const scale = 2.5/Math.max(size.x,size.y,size.z);
         car.scale.setScalar(scale);
         car.position.sub(center);
         car.position.y = 0.05;
 
-        // Front-facing
-        car.rotation.y = 0;
-
-
-        // Place car on street
-        const carBox = new THREE.Box3().setFromObject(car);
-        const carBottomY = carBox.min.y;
-        car.position.y -= carBottomY;
-
-        // Car materials
-        car.traverse((child) => {
-            if(child.isMesh && child.material){
-                child.material.roughness = 0.35;
-                child.material.metalness = 0.8;
-                child.material.envMapIntensity = 0.3;
-                child.material.clearcoat = 0.8;
-                child.material.clearcoatRoughness = 0.15;
-                child.material.needsUpdate = true;
-                child.castShadow = true;
-                child.receiveShadow = true;
+        car.traverse(c=>{
+            if(c.isMesh && c.material){
+                c.material.roughness=0.35;
+                c.material.metalness=0.8;
+                c.material.envMapIntensity=0.3;
+                c.material.clearcoat=0.8;
+                c.material.clearcoatRoughness=0.15;
+                c.material.castShadow = true;
+                c.material.receiveShadow = true;
             }
         });
-
         scene.add(car);
-
         controls.target.copy(car.position);
         controls.update();
-    },
-    (xhr) => console.log((xhr.loaded / xhr.total * 100).toFixed(2) + "% loaded"),
-    (err) => console.error(err)
+    }
 );
 
 // Animate
-function animate() {
+function animate(){
     requestAnimationFrame(animate);
     controls.update();
     composer.render();
 }
 
-// Start animation
-animate();
-
-// Responsive
-window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+// Resize
+window.addEventListener("resize",()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth,window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
 });
+
+animate();
 </script>
 </body>
 </html>
